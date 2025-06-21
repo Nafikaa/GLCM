@@ -7,30 +7,36 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 import joblib
 
-# Fungsi ekstraksi fitur tekstur (GLCM)
+# --- Ekstraksi Fitur GLCM ---
 def extract_glcm_features(gray_image):
-    glcm = graycomatrix(gray_image,
-                        distances=[1],
-                        angles=[0, np.pi/4, np.pi/2, 3*np.pi/4],
-                        levels=256,
-                        symmetric=True,
-                        normed=True)
+    glcm = graycomatrix(
+        gray_image,
+        distances=[1],
+        angles=[0, np.pi/4, np.pi/2, 3*np.pi/4],
+        levels=256,
+        symmetric=True,
+        normed=True
+    )
     features = []
     properties = ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']
     for prop in properties:
         prop_vals = graycoprops(glcm, prop)
-        features.extend(prop_vals.flatten())  # total: 6 fitur × 4 sudut = 24
+        features.extend(prop_vals.flatten())
     return features
 
-# Fungsi untuk membaca gambar dan label dari folder dataset
+# --- Load Dataset ---
 def load_dataset(dataset_path):
-    features = []
-    labels = []
+    features, labels = [], []
+
+    if not os.path.exists(dataset_path):
+        print(f"❌ Folder dataset tidak ditemukan: {dataset_path}")
+        exit()
 
     for label in os.listdir(dataset_path):
         label_path = os.path.join(dataset_path, label)
         if not os.path.isdir(label_path):
             continue
+
         for img_name in os.listdir(label_path):
             img_path = os.path.join(label_path, img_name)
             try:
@@ -40,23 +46,24 @@ def load_dataset(dataset_path):
                 feat = extract_glcm_features(gray)
                 features.append(feat)
                 labels.append(label)
-            except Exception:
-                print(f"❌ Gagal memproses: {img_path}")
+            except Exception as e:
+                print(f"❌ Gagal memproses {img_path}: {e}")
                 continue
 
     return np.array(features), np.array(labels)
 
-# MAIN
+# --- MAIN ---
 if __name__ == "__main__":
-    dataset_path = "dataset"
-    print("📂 Memuat dataset...")
+    dataset_path = "dataset"  # folder dataset harus berada di folder yang sama
+    print("📂 Memuat dataset dari:", os.path.abspath(dataset_path))
+
     X, y = load_dataset(dataset_path)
 
-    print("🧪 Membagi data latih dan uji...")
+    print("🧪 Split data latih dan uji...")
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    print("🤖 Melatih model RandomForest...")
-    model = RandomForestClassifier(n_estimators=100, min_samples_leaf=1, max_features='sqrt', random_state=42)
+    print("🤖 Melatih model Random Forest...")
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
 
     print("📈 Evaluasi model...")
@@ -64,6 +71,5 @@ if __name__ == "__main__":
     print("Akurasi:", accuracy_score(y_test, y_pred))
     print(classification_report(y_test, y_pred))
 
-    # Simpan model
     joblib.dump(model, "model_buah.pkl")
-    print("✅ Model berhasil disimpan sebagai 'model_buah.pkl'")
+    print("✅ Model disimpan sebagai 'model_buah.pkl'")
